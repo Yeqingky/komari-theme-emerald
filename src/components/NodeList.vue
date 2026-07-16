@@ -3,7 +3,6 @@ import type { NodeData } from '@/stores/nodes'
 import { Icon } from '@iconify/vue'
 import { computed, ref } from 'vue'
 import NodePingListCell from '@/components/NodePingListCell.vue'
-import TrafficProgress from '@/components/TrafficProgress.vue'
 import { Badge } from '@/components/ui/badge'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import { ProgressThin } from '@/components/ui/progress-thin'
@@ -163,28 +162,6 @@ function getRowTransitionStyle(index: number): Record<string, string> {
 
 function showTrafficProgress(node: NodeData): boolean {
   return node.traffic_limit > 0
-}
-
-function getTrafficUsedPercentage(node: NodeData): number {
-  if (node.traffic_limit <= 0)
-    return 0
-  const { net_total_up = 0, net_total_down = 0, traffic_limit_type } = node
-  let used = 0
-  switch (traffic_limit_type) {
-    case 'up': used = net_total_up
-      break
-    case 'down': used = net_total_down
-      break
-    case 'min': used = Math.min(net_total_up, net_total_down)
-      break
-    case 'max': used = Math.max(net_total_up, net_total_down)
-      break
-    case 'sum':
-    default:
-      used = net_total_up + net_total_down
-      break
-  }
-  return Math.min((used / node.traffic_limit) * 100, 100)
 }
 
 function getTrafficUsed(node: NodeData): number {
@@ -402,33 +379,26 @@ function getCustomTags(node: NodeData): Array<string> {
               </div>
 
               <!-- 流量 -->
-              <div v-else-if="col.key === 'traffic'" class="group">
-                <DataTooltip placement="top" class="flex items-center gap-2" content-class="mb-1.5">
-                  <div class="space-y-1 w-full">
-                    <div class="text-[10px] text-muted-foreground truncate">
-                      <span class="inline group-hover:hidden">
-                        {{ getTrafficUsedPercentage(node).toFixed(1) }}%
+              <div v-else-if="col.key === 'traffic'">
+                <DataTooltip
+                  placement="top" class="flex items-center gap-2"
+                  :content-class="[!showTrafficProgress(node) ? '!hidden' : 'mb-1.5']"
+                >
+                  <div class="w-full">
+                    <div class="flex min-w-0 items-center gap-1 text-[10px] text-muted-foreground">
+                      <span class="flex min-w-0 items-center gap-0.5 truncate">
+                        <Icon icon="tabler:chevron-up" width="11" height="11" />
+                        {{ formatBytes(node.net_total_up ?? 0) }}
                       </span>
-                      <span class="hidden group-hover:inline">
-                        {{ formatBytes(getTrafficUsed(node)) }} /
-                        <template v-if="showTrafficProgress(node)">{{ formatBytes(node.traffic_limit) }}</template>
-                        <template v-else>∞</template>
+                      <span class="flex min-w-0 items-center gap-0.5 truncate">
+                        <Icon icon="tabler:chevron-down" width="11" height="11" />
+                        {{ formatBytes(node.net_total_down ?? 0) }}
                       </span>
                     </div>
-                    <TrafficProgress
-                      :upload="node.net_total_up ?? 0" :download="node.net_total_down ?? 0"
-                      :traffic-limit="node.traffic_limit" :traffic-limit-type="(node.traffic_limit_type || 'sum')"
-                      height="4px"
-                    />
                   </div>
                   <template #content>
-                    <span class="flex flex-row gap-0.5 items-center whitespace-nowrap">
-                      <Icon icon="tabler:chevron-up" width="12" height="12" />
-                      {{ formatBytes(node.net_total_up ?? 0) }}
-                    </span>
-                    <span class="flex flex-row gap-0.5 items-center whitespace-nowrap">
-                      <Icon icon="tabler:chevron-down" width="12" height="12" />
-                      {{ formatBytes(node.net_total_down ?? 0) }}
+                    <span class="whitespace-nowrap">
+                      {{ formatBytes(getTrafficUsed(node)) }} / {{ formatBytes(node.traffic_limit) }}
                     </span>
                   </template>
                 </DataTooltip>

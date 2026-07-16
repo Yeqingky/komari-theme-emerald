@@ -49,28 +49,6 @@ function showTrafficProgress(node: NodeData): boolean {
   return node.traffic_limit > 0
 }
 
-const trafficUsedPercentage = computed(() => {
-  if (props.node.traffic_limit <= 0)
-    return 0
-  const { net_total_up = 0, net_total_down = 0, traffic_limit_type } = props.node
-  let used = 0
-  switch (traffic_limit_type) {
-    case 'up': used = net_total_up
-      break
-    case 'down': used = net_total_down
-      break
-    case 'min': used = Math.min(net_total_up, net_total_down)
-      break
-    case 'max': used = Math.max(net_total_up, net_total_down)
-      break
-    case 'sum':
-    default:
-      used = net_total_up + net_total_down
-      break
-  }
-  return Math.min((used / props.node.traffic_limit) * 100, 100)
-})
-
 const trafficUsed = computed(() => {
   const { net_total_up = 0, net_total_down = 0, traffic_limit_type } = props.node
   switch (traffic_limit_type) {
@@ -212,38 +190,31 @@ function openPingDialog() {
             </div>
           </div>
 
-          <!-- 流量进度条 -->
+          <!-- 流量 -->
           <div class="flex flex-col gap-1">
-            <div class="w-full text-xs flex flex-row justify-between">
+            <div class="w-full text-xs">
               <span class="text-muted-foreground">
                 流量
               </span>
-              <span>{{ trafficUsedPercentage.toFixed(1) }}%</span>
             </div>
-            <ProgressThin :percentage="trafficUsedPercentage" status="success" :height="4" />
-            <DataTooltip placement="top" class="block">
-              <div class="text-[11px] text-muted-foreground truncate">
-                {{ formatBytes(trafficUsed) }} /
-                <template v-if="showTrafficProgress(node)">
-                  {{ formatBytes(props.node.traffic_limit) }}
-                </template>
-                <template v-else>
-                  ∞
-                </template>
+            <DataTooltip
+              placement="top" class="block"
+              :content-class="[!showTrafficProgress(props.node) && '!hidden']"
+            >
+              <div class="flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">
+                <span class="flex min-w-0 items-center gap-0.5 truncate">
+                  <Icon icon="tabler:chevron-up" width="12" height="12" />
+                  {{ formatBytes(props.node.net_total_up ?? 0) }}
+                </span>
+                <span class="flex min-w-0 items-center gap-0.5 truncate">
+                  <Icon icon="tabler:chevron-down" width="12" height="12" />
+                  {{ formatBytes(props.node.net_total_down ?? 0) }}
+                </span>
               </div>
               <template #content>
-                <div class="flex items-center justify-between gap-3 whitespace-nowrap">
-                  <div class="text-[11px] flex flex-col">
-                    <div class="flex flex-row items-center gap-1">
-                      <Icon icon="tabler:chevron-up" width="12" height="12" />
-                      {{ formatBytes(props.node.net_total_up ?? 0) }}
-                    </div>
-                    <div class="flex flex-row items-center gap-1">
-                      <Icon icon="tabler:chevron-down" width="12" height="12" />
-                      {{ formatBytes(props.node.net_total_down ?? 0) }}
-                    </div>
-                  </div>
-                </div>
+                <span class="whitespace-nowrap">
+                  {{ formatBytes(trafficUsed) }} / {{ formatBytes(props.node.traffic_limit) }}
+                </span>
               </template>
             </DataTooltip>
           </div>

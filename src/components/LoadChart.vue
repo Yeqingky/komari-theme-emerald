@@ -354,6 +354,12 @@ const baseYAxisConfig = computed(() => ({
   },
 }))
 
+function toUsagePercentage(used: number | null | undefined, total: number | null | undefined): number {
+  if (!total || total <= 0)
+    return 0
+  return Math.min(Math.max(((used ?? 0) / total) * 100, 0), 100)
+}
+
 // ==================== 图表配置 ====================
 
 // CPU 图表
@@ -490,18 +496,20 @@ const memoryChartOption = computed(() => ({
   xAxis: baseXAxisConfig.value,
   yAxis: {
     ...baseYAxisConfig.value,
-    name: '内存',
+    name: '内存 %',
     nameTextStyle: { color: chartThemeColors.value.textSecondary, padding: [0, 40, 0, 0] },
+    min: 0,
+    max: 100,
     axisLabel: {
       ...baseYAxisConfig.value.axisLabel,
-      formatter: (val: number) => formatBytes(val),
+      formatter: '{value}%',
     },
   },
   series: [
     {
       name: 'RAM',
       type: 'line',
-      data: chartData.value.map(r => r.ram ?? 0),
+      data: chartData.value.map(r => toUsagePercentage(r.ram, r.ram_total ?? nodeInfo.value?.mem_total)),
 
       showSymbol: false,
       lineStyle: { width: 1.5, color: chartColors.primary, cap: 'round' as const },
@@ -522,7 +530,7 @@ const memoryChartOption = computed(() => ({
     {
       name: 'Swap',
       type: 'line',
-      data: chartData.value.map(r => r.swap ?? 0),
+      data: chartData.value.map(r => toUsagePercentage(r.swap, r.swap_total ?? nodeInfo.value?.swap_total)),
 
       showSymbol: false,
       lineStyle: { width: 1.5, color: chartColors.secondary, cap: 'round' as const },
@@ -565,18 +573,20 @@ const diskChartOption = computed(() => ({
   xAxis: baseXAxisConfig.value,
   yAxis: {
     ...baseYAxisConfig.value,
-    name: '磁盘',
+    name: '磁盘 %',
     nameTextStyle: { color: chartThemeColors.value.textSecondary, padding: [0, 40, 0, 0] },
+    min: 0,
+    max: 100,
     axisLabel: {
       ...baseYAxisConfig.value.axisLabel,
-      formatter: (val: number) => formatBytes(val),
+      formatter: '{value}%',
     },
   },
   series: [
     {
       name: '磁盘已用',
       type: 'line',
-      data: chartData.value.map(r => r.disk ?? 0),
+      data: chartData.value.map(r => toUsagePercentage(r.disk, r.disk_total ?? nodeInfo.value?.disk_total)),
 
       showSymbol: false,
       lineStyle: { width: 1.5, color: chartColors.tertiary, cap: 'round' as const },

@@ -228,7 +228,7 @@ const trafficUsedPercentage = computed(() => {
 
 const trafficUsageText = computed(() => {
   if (!hasTrafficLimit.value)
-    return '无限流量'
+    return ''
 
   return `${formatBytes(trafficUsed.value)} / ${formatBytes(data.value?.traffic_limit ?? 0)}`
 })
@@ -385,13 +385,22 @@ const trafficProgressStyle = computed(() => ({
                 <div class="flex gap-1 items-center text-muted-foreground">
                   <Icon icon="icon-park-outline:transfer-data" :width="14" :height="14" />
                   <span class="text-xs sm:text-sm">总流量</span>
-                  <div class="flex-1" />
-                  <span class="hidden sm:block text-[11px] font-medium text-foreground/70">{{
-                    formatBytes(data?.net_total_up ?? 0) }} / {{ formatBytes(data?.net_total_down ?? 0) }}</span>
                 </div>
-                <span class="text-xs sm:text-sm break-all">
-                  {{ trafficUsageText }}
-                </span>
+                <div class="flex min-w-0 flex-wrap items-end justify-between gap-x-2 gap-y-1 text-xs sm:text-sm">
+                  <div class="flex min-w-0 flex-wrap items-center gap-2">
+                    <span class="flex items-center gap-1 text-green-600">
+                      <Icon icon="tabler:chevron-up" width="12" height="12" />
+                      {{ formatBytes(data?.net_total_up ?? 0) }}
+                    </span>
+                    <span class="flex items-center gap-1 text-blue-600">
+                      <Icon icon="tabler:chevron-down" width="12" height="12" />
+                      {{ formatBytes(data?.net_total_down ?? 0) }}
+                    </span>
+                  </div>
+                  <span v-if="hasTrafficLimit" class="break-all text-[11px] font-medium text-foreground/70">
+                    {{ trafficUsageText }}
+                  </span>
+                </div>
               </div>
             </div>
             <div class="min-w-0 flex flex-col gap-1 rounded-sm bg-slate-500/5 p-2">
@@ -399,13 +408,16 @@ const trafficProgressStyle = computed(() => ({
                 <Icon icon="icon-park-outline:dashboard-one" :width="14" :height="14" />
                 <span class="text-xs sm:text-sm">网络速率</span>
               </div>
-              <span class="text-xs sm:text-sm break-all flex flex-row flex-wrap items-center gap-1">
-                <Icon icon="tabler:chevron-up" width="12" height="12" />
-                {{ formatBytesPerSecond(data?.net_out ?? 0) }}
-                <span class="px-0.5" />
-                <Icon icon="tabler:chevron-down" width="12" height="12" />
-                {{ formatBytesPerSecond(data?.net_in ?? 0) }}
-              </span>
+              <div class="flex min-w-0 flex-wrap items-center gap-2 text-xs sm:text-sm">
+                <span class="flex items-center gap-1 text-green-600">
+                  <Icon icon="tabler:chevron-up" width="12" height="12" />
+                  {{ formatBytesPerSecond(data?.net_out ?? 0) }}
+                </span>
+                <span class="flex items-center gap-1 text-blue-600">
+                  <Icon icon="tabler:chevron-down" width="12" height="12" />
+                  {{ formatBytesPerSecond(data?.net_in ?? 0) }}
+                </span>
+              </div>
             </div>
           </div>
         </CardX>
