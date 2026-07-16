@@ -366,7 +366,7 @@ function toUsagePercentage(used: number | null | undefined, total: number | null
 const cpuChartOption = computed(() => ({
   animation: false,
   // 全局颜色配置（确保 Tooltip 圆点颜色与线条一致）
-  color: [chartColors.primary, chartColors.secondary],
+  color: [chartColors.primary],
   tooltip: {
     ...baseTooltipConfig.value,
     formatter: (params: unknown) => {
@@ -389,9 +389,6 @@ const cpuChartOption = computed(() => ({
         if (item.seriesName === 'CPU') {
           html += `<div style="display:flex;align-items:center">${colorDot}<span>CPU</span><span style="margin-left:auto;font-weight:600;margin-left:16px">${item.value?.toFixed(1) ?? '-'}%</span></div>`
         }
-        else if (item.seriesName === '负载') {
-          html += `<div style="display:flex;align-items:center">${colorDot}<span>系统负载</span><span style="margin-left:auto;font-weight:600;margin-left:16px">${item.value?.toFixed(2) ?? '-'}</span></div>`
-        }
       }
       html += '</div>'
       return html
@@ -399,23 +396,14 @@ const cpuChartOption = computed(() => ({
   },
   grid: chartMargin,
   xAxis: baseXAxisConfig.value,
-  yAxis: [
-    {
-      ...baseYAxisConfig.value,
-      name: 'CPU %',
-      nameTextStyle: { color: chartThemeColors.value.textSecondary, padding: [0, 40, 0, 0] },
-      min: 0,
-      max: 100,
-      axisLabel: { ...baseYAxisConfig.value.axisLabel, formatter: '{value}%' },
-    },
-    {
-      ...baseYAxisConfig.value,
-      name: '负载',
-      nameTextStyle: { color: chartThemeColors.value.textSecondary, padding: [0, 0, 0, 40] },
-      min: 0,
-      splitLine: { show: false },
-    },
-  ],
+  yAxis: {
+    ...baseYAxisConfig.value,
+    name: 'CPU %',
+    nameTextStyle: { color: chartThemeColors.value.textSecondary, padding: [0, 40, 0, 0] },
+    min: 0,
+    max: 100,
+    axisLabel: { ...baseYAxisConfig.value.axisLabel, formatter: '{value}%' },
+  },
   series: [
     {
       name: 'CPU',
@@ -423,7 +411,6 @@ const cpuChartOption = computed(() => ({
       data: chartData.value.map(r => r.cpu),
 
       showSymbol: false,
-      yAxisIndex: 0,
       lineStyle: { width: 1.5, color: chartColors.primary, cap: 'round' as const },
       areaStyle: {
         color: {
@@ -438,15 +425,6 @@ const cpuChartOption = computed(() => ({
           ],
         },
       },
-    },
-    {
-      name: '负载',
-      type: 'line',
-      data: chartData.value.map(r => r.load),
-
-      showSymbol: false,
-      yAxisIndex: 1,
-      lineStyle: { width: 1.5, color: chartColors.secondary, cap: 'round' as const },
     },
   ],
 }))
