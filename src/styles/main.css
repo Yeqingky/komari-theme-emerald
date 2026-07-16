@@ -4,8 +4,13 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 * {
-  scrollbar-color: var(--ring) transparent;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 :root {
