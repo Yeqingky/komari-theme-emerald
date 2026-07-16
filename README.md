@@ -3,11 +3,15 @@
 基于 Vue 3 + Vite + reka-ui + Tailwind CSS v4 构建的 Komari Monitor 主题
 </p>
 
+> 本项目由 **YeqingKy** 维护，Fork 自 [Tokinx/komari-theme-emerald](https://github.com/Tokinx/komari-theme-emerald)，并在原项目基础上进行二次开发。
+
+项目地址：[Yeqingky/komari-theme-emerald](https://github.com/Yeqingky/komari-theme-emerald/)
+
 ![preview](/docs/preview.png)
 
 ## 使用
 
-1. 从 [Release 页面](https://github.com/Tokinx/komari-theme-emerald/releases) 下载最新的 `komari-theme-emerald-build-*.zip` 文件
+1. 从 [Release 页面](https://github.com/Yeqingky/komari-theme-emerald/releases) 下载最新的 `komari-theme-emerald-build-*.zip` 文件
 2. 登录 Komari Monitor 后，点击 `设置`，选择 `主题管理` 选项卡
 3. 点击 `上传主题` 按钮，选择下载的 `komari-theme-emerald-build-*.zip` 文件
 4. 刷新页面，即可看到新的主题
@@ -68,6 +72,11 @@ bun run preview
 - [Tailwind CSS](https://tailwindcss.com/)
 
 本主题基座基于 [Komari Naive](https://github.com/lyimoexiao/komari-theme-naive)，特此感谢
+
+## 作者
+
+- 二次开发与维护：[YeqingKy](https://github.com/Yeqingky)
+- 原项目：[Tokinx/komari-theme-emerald](https://github.com/Tokinx/komari-theme-emerald)
 
 ## License
 
