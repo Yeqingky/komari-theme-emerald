@@ -297,16 +297,15 @@ const useNodesStore = defineStore('nodes', () => {
       }
     }
 
-    // 按 weight 降序排序（weight 越大越靠前）
-    sortNodesByWeight()
+    sortNodes()
     refreshEarthNodes(true)
   }
 
   /**
-   * 按 weight 升序排序节点（weight 越小越靠前）
+   * 在线节点优先，同一状态内按 weight 升序排序（weight 越小越靠前）
    */
-  function sortNodesByWeight(): void {
-    nodes.value.sort((a, b) => a.weight - b.weight)
+  function sortNodes(): void {
+    nodes.value.sort((a, b) => Number(b.online) - Number(a.online) || a.weight - b.weight)
   }
 
   /**
@@ -328,8 +327,10 @@ const useNodesStore = defineStore('nodes', () => {
       hasChanges = true
     })
 
-    if (hasChanges)
+    if (hasChanges) {
+      sortNodes()
       refreshEarthNodes()
+    }
   }
 
   /**
@@ -386,8 +387,7 @@ const useNodesStore = defineStore('nodes', () => {
       }
     }
 
-    // 按 weight 降序排序
-    sortNodesByWeight()
+    sortNodes()
     refreshEarthNodes(true)
   }
 
@@ -424,7 +424,7 @@ const useNodesStore = defineStore('nodes', () => {
     initNodes,
     updateNodeStatuses,
     updateNodeClients,
-    sortNodesByWeight,
+    sortNodes,
     updateWsState,
     clearNodes,
   }

@@ -76,9 +76,13 @@ const sortedNodes = computed(() => {
   const nodes = [...props.nodes]
   const key = sortKey.value
   const dir = sortDir.value
-  if (!key)
-    return nodes
   return nodes.sort((a, b) => {
+    const onlineOrder = Number(b.online) - Number(a.online)
+    if (onlineOrder !== 0)
+      return onlineOrder
+    if (!key)
+      return 0
+
     switch (key) {
       case 'status': return dir * ((a.online ? 1 : 0) - (b.online ? 1 : 0))
       case 'region': {
