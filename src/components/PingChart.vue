@@ -164,6 +164,7 @@ const tasks = shallowRef<TaskInfo[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 let fetchRequestId = 0
+let backgroundRefreshInProgress = false
 let metricRpcSupported: boolean | null = null
 
 // 任务选择
@@ -262,16 +263,26 @@ async function fetchLegacyRecords(uuid: string, hours: number): Promise<PingChar
   }
 }
 
-async function fetchRecords() {
+async function fetchRecords(options: { background?: boolean } = {}) {
   if (!props.uuid)
     return
+
+  const background = options.background === true
+  if (background && (backgroundRefreshInProgress || loading.value))
+    return
+
+  if (background) {
+    backgroundRefreshInProgress = true
+  }
 
   const requestId = ++fetchRequestId
   const uuid = props.uuid
   const hours = selectedHours.value
 
-  loading.value = true
-  error.value = null
+  if (!background) {
+    loading.value = true
+    error.value = null
+  }
 
   try {
     let result: PingChartData
@@ -295,6 +306,7 @@ async function fetchRecords() {
     if (requestId !== fetchRequestId)
       return
 
+    error.value = null
     const records = result.records
     records.sort((a, b) => dayjs(a.time).valueOf() - dayjs(b.time).valueOf())
 
@@ -309,12 +321,18 @@ async function fetchRecords() {
     if (requestId !== fetchRequestId)
       return
 
+    if (background)
+      return
+
     error.value = err instanceof Error ? err.message : '获取数据失败'
     remoteData.value = []
     tasks.value = []
   }
   finally {
-    if (requestId === fetchRequestId) {
+    if (background) {
+      backgroundRefreshInProgress = false
+    }
+    else if (requestId === fetchRequestId) {
       loading.value = false
     }
   }
@@ -688,7 +706,7 @@ watch(selectedView, () => {
 })
 
 const { pause: pauseRealtimeUpdate, resume: resumeRealtimeUpdate } = useIntervalFn(
-  fetchRecords,
+  () => fetchRecords({ background: true }),
   dataUpdateInterval,
   { immediate: false },
 )
