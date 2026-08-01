@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue'
+import { useIntervalFn } from '@vueuse/core'
 import dayjs from 'dayjs'
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 import VChart from 'vue-echarts'
@@ -48,44 +49,27 @@ const chartColors = [
   '#FB923C', // 橙色
 ]
 
-// 从 publicSettings 获取记录保留时间
-const maxPingRecordPreserveTime = computed(() => appStore.publicSettings?.ping_record_preserve_time || 168)
+// 从 publicSettings.theme_settings 获取数据更新间隔（秒），默认 3 秒
+const dataUpdateInterval = computed(() => {
+  const interval = appStore.publicSettings?.theme_settings?.dataUpdateInterval
+  if (typeof interval === 'number' && interval >= 1 && interval <= 60) {
+    return interval * 1000
+  }
+  return 3000
+})
 
 // 视图选项
 const presetViews = [
-  { label: '1 小时', hours: 1 },
-  { label: '6 小时', hours: 6 },
+  { label: '3 小时', hours: 3 },
   { label: '12 小时', hours: 12 },
   { label: '1 天', hours: 24 },
+  { label: '3 天', hours: 72 },
+  { label: '30 天', hours: 720 },
+  { label: '90 天', hours: 2160 },
 ]
 
 // 可用视图列表
-const availableViews = computed(() => {
-  const views: { label: string, hours: number }[] = []
-  const maxHours = maxPingRecordPreserveTime.value
-
-  for (const v of presetViews) {
-    if (maxHours >= v.hours) {
-      views.push(v)
-    }
-  }
-
-  const maxPreset = presetViews.at(-1)
-  if (maxPreset && maxHours > maxPreset.hours) {
-    const label = maxHours % 24 === 0
-      ? `${Math.floor(maxHours / 24)} 天`
-      : `${maxHours} 小时`
-    views.push({ label, hours: maxHours })
-  }
-  else if (maxHours > 1 && !presetViews.some(v => v.hours === maxHours)) {
-    const label = maxHours % 24 === 0
-      ? `${Math.floor(maxHours / 24)} 天`
-      : `${maxHours} 小时`
-    views.push({ label, hours: maxHours })
-  }
-
-  return views
-})
+const availableViews = computed(() => [{ label: '实时', hours: 1 }, ...presetViews])
 
 // 当前选中的视图
 const selectedView = ref<string>('')
@@ -93,6 +77,7 @@ const selectedHours = computed(() => {
   const view = availableViews.value.find(v => v.label === selectedView.value)
   return view?.hours || 1
 })
+const isRealtime = computed(() => selectedView.value === '实时')
 
 // 初始化默认视图
 watch(availableViews, (views) => {
@@ -701,6 +686,21 @@ watch(selectedView, () => {
   selectedTaskIds.value = []
   fetchRecords()
 })
+
+const { pause: pauseRealtimeUpdate, resume: resumeRealtimeUpdate } = useIntervalFn(
+  fetchRecords,
+  dataUpdateInterval,
+  { immediate: false },
+)
+
+watch(isRealtime, (realtime) => {
+  if (realtime) {
+    resumeRealtimeUpdate()
+  }
+  else {
+    pauseRealtimeUpdate()
+  }
+}, { immediate: true })
 
 watch(() => props.uuid, () => {
   remoteData.value = []

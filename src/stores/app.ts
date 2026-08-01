@@ -56,6 +56,14 @@ const useAppStore = defineStore('app', () => {
     return 'card'
   })
 
+  const hideViewModeSwitch = computed<boolean>(() => {
+    const settings = publicSettings.value?.theme_settings
+    if (settings && typeof settings.hideViewModeSwitch === 'boolean') {
+      return settings.hideViewModeSwitch
+    }
+    return false
+  })
+
   // 校验视图模式是否为合法值
   function isValidViewMode(value: string | null): value is NodeViewMode {
     return value === 'card' || value === 'list'
@@ -64,6 +72,9 @@ const useAppStore = defineStore('app', () => {
   // 当前实际使用的视图模式
   const nodeViewMode = computed<NodeViewMode>({
     get: () => {
+      if (hideViewModeSwitch.value) {
+        return defaultViewMode.value
+      }
       // 校验 storedViewMode 是否为合法值，非法值时使用默认值
       if (storedViewMode.value !== null && isValidViewMode(storedViewMode.value)) {
         return storedViewMode.value
@@ -71,6 +82,9 @@ const useAppStore = defineStore('app', () => {
       return defaultViewMode.value
     },
     set: (val) => {
+      if (hideViewModeSwitch.value) {
+        return
+      }
       storedViewMode.value = val
     },
   })
@@ -317,6 +331,7 @@ const useAppStore = defineStore('app', () => {
     nodeSelectedGroup,
     nodeViewMode,
     defaultViewMode,
+    hideViewModeSwitch,
     rpcTransportMode,
     byteDecimals,
     alertEnabled,

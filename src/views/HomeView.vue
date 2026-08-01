@@ -185,22 +185,24 @@ function getNodeItemTransitionStyle(index: number): Record<string, string> {
               </TabsList>
             </div>
             <div class="ml-auto search flex gap-2 items-center pointer-events-auto">
-              <Button
-                variant="outline" size="icon" aria-label="卡片视图"
-                class="h-8 w-8 border-none shadow-none rounded-md"
-                :class="[pickSurfaceClass('bg-background hover:bg-background/95', 'bg-background/50 hover:bg-background/60 backdrop-blur-xs'), appStore.nodeViewMode === 'card' ? '!text-emerald-600 !bg-background' : '']"
-                @click="appStore.nodeViewMode = 'card'"
-              >
-                <Icon icon="tabler:layout-grid" :width="14" :height="14" />
-              </Button>
-              <Button
-                variant="outline" size="icon" aria-label="列表视图"
-                class="h-8 w-8 border-none shadow-none rounded-md"
-                :class="[pickSurfaceClass('bg-background hover:bg-background/95', 'bg-background/50 hover:bg-background/60 backdrop-blur-xs'), appStore.nodeViewMode === 'list' ? '!text-emerald-600 !bg-background' : '']"
-                @click="appStore.nodeViewMode = 'list'"
-              >
-                <Icon icon="tabler:table" :width="14" :height="14" />
-              </Button>
+              <template v-if="!appStore.hideViewModeSwitch">
+                <Button
+                  variant="outline" size="icon" aria-label="卡片视图"
+                  class="h-8 w-8 border-none shadow-none rounded-md"
+                  :class="[pickSurfaceClass('bg-background hover:bg-background/95', 'bg-background/50 hover:bg-background/60 backdrop-blur-xs'), appStore.nodeViewMode === 'card' ? '!text-emerald-600 !bg-background' : '']"
+                  @click="appStore.nodeViewMode = 'card'"
+                >
+                  <Icon icon="tabler:layout-grid" :width="14" :height="14" />
+                </Button>
+                <Button
+                  variant="outline" size="icon" aria-label="列表视图"
+                  class="h-8 w-8 border-none shadow-none rounded-md"
+                  :class="[pickSurfaceClass('bg-background hover:bg-background/95', 'bg-background/50 hover:bg-background/60 backdrop-blur-xs'), appStore.nodeViewMode === 'list' ? '!text-emerald-600 !bg-background' : '']"
+                  @click="appStore.nodeViewMode = 'list'"
+                >
+                  <Icon icon="tabler:table" :width="14" :height="14" />
+                </Button>
+              </template>
               <div class="relative z-1 w-8 h-8">
                 <div class="absolute top-0 right-0 ">
                   <Input

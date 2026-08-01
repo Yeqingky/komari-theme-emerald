@@ -26,9 +26,6 @@ const appStore = useAppStore()
 const { pickSurfaceClass } = useBackgroundSurface()
 const nodesStore = useNodesStore()
 
-// 从 publicSettings 获取记录保留时间
-const maxRecordPreserveTime = computed(() => appStore.publicSettings?.record_preserve_time || 720)
-
 // 从 publicSettings.theme_settings 获取数据更新间隔（秒），默认 3 秒
 const dataUpdateInterval = computed(() => {
   const settings = appStore.publicSettings?.theme_settings
@@ -106,39 +103,16 @@ const chartMarginWithLegend = { top: 30, right: 24, bottom: 52, left: 56 }
 
 // 视图选项
 const presetViews = [
-  { label: '4 小时', hours: 4 },
+  { label: '3 小时', hours: 3 },
+  { label: '12 小时', hours: 12 },
   { label: '1 天', hours: 24 },
-  { label: '7 天', hours: 168 },
+  { label: '3 天', hours: 72 },
   { label: '30 天', hours: 720 },
+  { label: '90 天', hours: 2160 },
 ]
 
 // 可用视图列表
-const availableViews = computed(() => {
-  const views: { label: string, hours?: number }[] = [{ label: '实时' }]
-  const maxHours = maxRecordPreserveTime.value
-
-  for (const v of presetViews) {
-    if (maxHours >= v.hours) {
-      views.push({ label: v.label, hours: v.hours })
-    }
-  }
-
-  const maxPreset = presetViews.at(-1)
-  if (maxPreset && maxHours > maxPreset.hours) {
-    const label = maxHours % 24 === 0
-      ? `${Math.floor(maxHours / 24)} 天`
-      : `${maxHours} 小时`
-    views.push({ label, hours: maxHours })
-  }
-  else if (maxHours > 4 && !presetViews.some(v => v.hours === maxHours)) {
-    const label = maxHours % 24 === 0
-      ? `${Math.floor(maxHours / 24)} 天`
-      : `${maxHours} 小时`
-    views.push({ label, hours: maxHours })
-  }
-
-  return views
-})
+const availableViews = computed<{ label: string, hours?: number }[]>(() => [{ label: '实时' }, ...presetViews])
 
 // 当前选中的视图
 const selectedView = ref<string>('实时')
