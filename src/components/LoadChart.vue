@@ -334,10 +334,30 @@ const baseYAxisConfig = computed(() => ({
   },
 }))
 
-function toUsagePercentage(used: number | null | undefined, total: number | null | undefined): number {
-  if (!total || total <= 0)
-    return 0
-  return Math.min(Math.max(((used ?? 0) / total) * 100, 0), 100)
+function resolveCapacityTotal(
+  recordTotal: number | null | undefined,
+  fallbackTotal: number | null | undefined,
+): number | null {
+  if (typeof recordTotal === 'number' && Number.isFinite(recordTotal) && recordTotal > 0)
+    return recordTotal
+  if (typeof fallbackTotal === 'number' && Number.isFinite(fallbackTotal) && fallbackTotal > 0)
+    return fallbackTotal
+  return null
+}
+
+function toUsagePercentage(
+  used: number | null | undefined,
+  recordTotal: number | null | undefined,
+  fallbackTotal: number | null | undefined,
+): number | null {
+  if (typeof used !== 'number' || !Number.isFinite(used))
+    return null
+
+  const total = resolveCapacityTotal(recordTotal, fallbackTotal)
+  if (total === null)
+    return null
+
+  return Math.min(Math.max((used / total) * 100, 0), 100)
 }
 
 // ==================== 图表配置 ====================
@@ -427,9 +447,9 @@ const memoryChartOption = computed(() => ({
         return ''
 
       const ramUsed = record.ram ?? 0
-      const ramTotal = record.ram_total ?? nodeInfo.value?.mem_total ?? 0
+      const ramTotal = resolveCapacityTotal(record.ram_total, nodeInfo.value?.mem_total) ?? 0
       const swapUsed = record.swap ?? 0
-      const swapTotal = record.swap_total ?? nodeInfo.value?.swap_total ?? 0
+      const swapTotal = resolveCapacityTotal(record.swap_total, nodeInfo.value?.swap_total) ?? 0
       const ramPercent = ramTotal > 0 ? ((ramUsed / ramTotal) * 100).toFixed(1) : '0'
       const swapPercent = swapTotal > 0 ? ((swapUsed / swapTotal) * 100).toFixed(1) : '0'
 
@@ -467,7 +487,7 @@ const memoryChartOption = computed(() => ({
     {
       name: 'RAM',
       type: 'line',
-      data: chartData.value.map(r => toUsagePercentage(r.ram, r.ram_total ?? nodeInfo.value?.mem_total)),
+      data: chartData.value.map(r => toUsagePercentage(r.ram, r.ram_total, nodeInfo.value?.mem_total)),
 
       showSymbol: false,
       lineStyle: { width: 1.5, color: chartColors.primary, cap: 'round' as const },
@@ -488,7 +508,7 @@ const memoryChartOption = computed(() => ({
     {
       name: 'Swap',
       type: 'line',
-      data: chartData.value.map(r => toUsagePercentage(r.swap, r.swap_total ?? nodeInfo.value?.swap_total)),
+      data: chartData.value.map(r => toUsagePercentage(r.swap, r.swap_total, nodeInfo.value?.swap_total)),
 
       showSymbol: false,
       lineStyle: { width: 1.5, color: chartColors.secondary, cap: 'round' as const },
@@ -514,7 +534,7 @@ const diskChartOption = computed(() => ({
         return ''
 
       const diskUsed = record.disk ?? 0
-      const diskTotal = record.disk_total ?? nodeInfo.value?.disk_total ?? 0
+      const diskTotal = resolveCapacityTotal(record.disk_total, nodeInfo.value?.disk_total) ?? 0
       const diskPercent = diskTotal > 0 ? ((diskUsed / diskTotal) * 100).toFixed(1) : '0'
 
       const timeStr = formatTimeForTooltip(record.time, selectedHours.value || 1)
@@ -544,7 +564,7 @@ const diskChartOption = computed(() => ({
     {
       name: '磁盘已用',
       type: 'line',
-      data: chartData.value.map(r => toUsagePercentage(r.disk, r.disk_total ?? nodeInfo.value?.disk_total)),
+      data: chartData.value.map(r => toUsagePercentage(r.disk, r.disk_total, nodeInfo.value?.disk_total)),
       showSymbol: false,
       lineStyle: { width: 1.5, color: chartColors.tertiary, cap: 'round' as const },
       areaStyle: {
