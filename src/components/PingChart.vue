@@ -115,6 +115,8 @@ interface TaskInfo {
 interface MetricPoint {
   time: string
   value: number | null
+  tags?: Record<string, string>
+  tag?: Record<string, string>
 }
 
 interface MetricSeries {
@@ -192,6 +194,17 @@ function isMethodNotFoundError(err: unknown): boolean {
   return err instanceof RpcError && err.code === -32601
 }
 
+function getMetricTaskId(series: MetricSeries, point: MetricPoint): number | null {
+  const taskId = Number(
+    point.tags?.task_id
+    ?? series.tags?.task_id
+    ?? point.tag?.task_id
+    ?? series.tag?.task_id,
+  )
+
+  return Number.isInteger(taskId) ? taskId : null
+}
+
 async function fetchMetricRecords(uuid: string, hours: number): Promise<PingChartData> {
   const [metricResult, statsResult] = await Promise.all([
     rpc.getClient().call<MetricQueryResponse>('public:queryMetrics', {
@@ -211,11 +224,11 @@ async function fetchMetricRecords(uuid: string, hours: number): Promise<PingChar
 
   const records: PingRecord[] = []
   for (const series of metricResult?.series ?? []) {
-    const taskId = Number(series.tags?.task_id ?? series.tag?.task_id)
-    if (!Number.isInteger(taskId))
-      continue
-
     for (const point of series.points ?? []) {
+      const taskId = getMetricTaskId(series, point)
+      if (taskId === null)
+        continue
+
       if (point.value === null)
         continue
 
@@ -687,6 +700,11 @@ const pingChartOption = computed(() => {
       axisLabel: { fontSize: 11, color: chartThemeColors.value.textSecondary, formatter: '{value}' },
       axisLine: { show: false },
       axisTick: { show: false },
+      axisPointer: {
+        lineStyle: { opacity: 0 },
+        crossStyle: { opacity: 0 },
+        label: { show: false },
+      },
       splitLine: {
         lineStyle: {
           color: chartThemeColors.value.splitLineColor,

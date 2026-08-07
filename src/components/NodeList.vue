@@ -7,24 +7,18 @@ import { Badge } from '@/components/ui/badge'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import { ProgressThin } from '@/components/ui/progress-thin'
 import { useBackgroundSurface } from '@/composables/useBackgroundSurface'
+import { useNodeFormatters } from '@/composables/useNodeFormatters'
 import { useAppStore } from '@/stores/app'
-import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, formatUptimeWithFormat, getStatus } from '@/utils/helper'
+import { formatDateTime, getStatus } from '@/utils/helper'
+import { formatOfflineTime, getCustomTags, getPriceTags, getRemainingTimeTagClass, getTrafficUsed, getTrafficUsedPercentage, hasRegion, showTrafficProgress } from '@/utils/nodeHelpers'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
-import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
-import { formatPriceWithCycle, getDaysUntilExpired, getExpireStatus, getExpireTextClass, parseTags } from '@/utils/tagHelper'
+import { getFlagSrc, getRegionDisplayName } from '@/utils/regionHelper'
 
 interface ColumnConfig {
   key: string
   label: string
   width: string | number
   sortable: boolean
-}
-
-interface PriceTagItem {
-  text: string
-  highlightValue?: string
-  prefix?: string
-  suffix?: string
 }
 
 const props = defineProps<{
@@ -42,18 +36,19 @@ const rowStaggerLimit = 12
 
 const appStore = useAppStore()
 const { pickSurfaceClass } = useBackgroundSurface()
+const { formatBytes, formatBytesPerSecond, formatUptime } = useNodeFormatters()
 
 const columns: ColumnConfig[] = [
-  { key: 'status', label: '状态', width: '40px', sortable: false },
-  { key: 'os', label: '系统', width: '40px', sortable: false },
-  { key: 'name', label: '节点', width: 'minmax(160px, 0.8fr)', sortable: true },
-  { key: 'tags', label: '标签', width: 'minmax(200px, 1fr)', sortable: false },
-  { key: 'uptime', label: '运行时间', width: '116px', sortable: true },
-  { key: 'cpu', label: 'CPU', width: '100px', sortable: false },
-  { key: 'mem', label: '内存', width: '100px', sortable: false },
-  { key: 'disk', label: '硬盘', width: '100px', sortable: false },
-  { key: 'traffic', label: '流量', width: '100px', sortable: false },
+  { key: 'status', label: '状态', width: '40px', sortable: true },
+  { key: 'os', label: '系统', width: '40px', sortable: true },
+  { key: 'name', label: '节点', width: 'minmax(160px, 1fr)', sortable: true },
+  { key: 'tags', label: '标签', width: 'minmax(180px, 1fr)', sortable: false },
+  { key: 'cpu', label: 'CPU', width: '100px', sortable: true },
+  { key: 'mem', label: '内存', width: '100px', sortable: true },
+  { key: 'disk', label: '硬盘', width: '100px', sortable: true },
+  { key: 'traffic', label: '流量', width: '100px', sortable: true },
   { key: 'rate', label: '速率', width: '80px', sortable: true },
+  { key: 'networks', label: '三网', width: '136px', sortable: false },
 ]
 
 const sortKey = ref<string>('')
@@ -94,7 +89,6 @@ const sortedNodes = computed(() => {
         const vb = (b.name || '').toLowerCase()
         return dir * (va < vb ? -1 : va > vb ? 1 : 0)
       }
-      case 'uptime': return dir * ((a.uptime ?? 0) - (b.uptime ?? 0))
       case 'os': {
         const va = (a.os || '').toLowerCase()
         const vb = (b.os || '').toLowerCase()
@@ -104,16 +98,13 @@ const sortedNodes = computed(() => {
       case 'mem': return dir * ((a.ram ?? 0) / (a.mem_total || 1) - (b.ram ?? 0) / (b.mem_total || 1))
       case 'disk': return dir * ((a.disk ?? 0) / (a.disk_total || 1) - (b.disk ?? 0) / (b.disk_total || 1))
       case 'traffic':
+        return dir * (getTrafficUsedPercentage(a) - getTrafficUsedPercentage(b))
       case 'rate':
         return dir * (((a.net_out ?? 0) + (a.net_in ?? 0)) - ((b.net_out ?? 0) + (b.net_in ?? 0)))
       default: return 0
     }
   })
 })
-
-const formatBytes = (bytes: number) => formatBytesWithConfig(bytes)
-const formatBytesPerSecond = (bytes: number) => formatBytesPerSecondWithConfig(bytes)
-const formatUptime = (seconds: number) => formatUptimeWithFormat(seconds, 'hour')
 
 const columnKeys = computed(() => columns.map(c => c.key))
 
@@ -134,14 +125,6 @@ const offlineOverlayContentStyle = computed(() => {
   return { gridColumn: `${startColumn} / -1` }
 })
 
-function getFlagSrc(region: string): string {
-  return `/images/flags/${getRegionCode(region)}.svg`
-}
-
-function hasRegion(region: string | null | undefined): boolean {
-  return Boolean(region?.trim())
-}
-
 function handleClick(node: NodeData) {
   emit('click', node)
 }
@@ -158,55 +141,6 @@ function getRowTransitionStyle(index: number): Record<string, string> {
   return {
     '--node-row-delay': `${Math.min(index, rowStaggerLimit) * rowStaggerMs}ms`,
   }
-}
-
-function showTrafficProgress(node: NodeData): boolean {
-  return node.traffic_limit > 0
-}
-
-function getTrafficUsed(node: NodeData): number {
-  const { net_total_up = 0, net_total_down = 0, traffic_limit_type } = node
-  switch (traffic_limit_type) {
-    case 'up': return net_total_up
-    case 'down': return net_total_down
-    case 'min': return Math.min(net_total_up, net_total_down)
-    case 'max': return Math.max(net_total_up, net_total_down)
-    case 'sum':
-    default: return net_total_up + net_total_down
-  }
-}
-
-function formatOfflineTime(node: NodeData): string {
-  return formatDateTime(node.time)
-}
-
-function getPriceTags(node: NodeData): PriceTagItem[] {
-  const tags: PriceTagItem[] = []
-  const lang = appStore.lang
-  const days = getDaysUntilExpired(node.expired_at)
-  const status = getExpireStatus(node.expired_at)
-  const priceText = formatPriceWithCycle(node.price, node.billing_cycle, node.currency, lang)
-  if (node.price !== 0)
-    tags.push({ text: priceText })
-  if (status === 'expired')
-    tags.push({ text: lang === 'zh-CN' ? '已过期' : 'Expired' })
-  else if (status === 'long_term')
-    tags.push({ text: lang === 'zh-CN' ? '长期' : 'Long-term' })
-  else if (lang === 'zh-CN')
-    tags.push({ text: `余 ${days} 天`, prefix: '余 ', highlightValue: String(days), suffix: ' 天' })
-  else
-    tags.push({ text: `${days} days left`, highlightValue: String(days), suffix: ' days left' })
-  return tags
-}
-
-function getRemainingTimeTagClass(node: NodeData): string {
-  if (node.price === 0)
-    return ''
-  return getExpireTextClass(node.expired_at)
-}
-
-function getCustomTags(node: NodeData): Array<string> {
-  return parseTags(node.tags).map(t => t.text)
 }
 </script>
 
@@ -266,20 +200,29 @@ function getCustomTags(node: NodeData): Array<string> {
                   >
                   <span class="truncate">{{ node.name }}</span>
                 </div>
-                <div
-                  v-if="getPriceTags(node).length > 0"
-                  class="text-[11px] text-muted-foreground/70 truncate"
-                >
-                  <span v-for="(tag, tagIndex) in getPriceTags(node)" :key="tagIndex" :class="[!!tagIndex && 'ml-1']">
-                    <template v-if="tag.highlightValue">
-                      <span>{{ tag.prefix }}</span>
-                      <span :class="getRemainingTimeTagClass(node)">{{ tag.highlightValue }}</span>
-                      <span>{{ tag.suffix }}</span>
-                    </template>
-                    <template v-else>
-                      {{ tag.text }}
-                    </template>
-                  </span>
+                <div class="flex flex-row text-[11px] text-muted-foreground/70">
+                  <DataTooltip
+                    v-if="node.online" :content="formatUptime(node.uptime ?? 0)" class="shrink-0" placement="right"
+                    content-class="whitespace-pre-wrap left-0 ml-0 w-max"
+                  >
+                    <span>
+                      {{ formatUptime(node.uptime ?? 0, 'day') }}
+                    </span>
+                  </DataTooltip>
+                  <DataTooltip
+                    v-if="getPriceTags(node, appStore.lang).length > 0" placement="left"
+                    :content="formatDateTime(node.expired_at, 'YYYY-MM-DD')"
+                    content-class="whitespace-nowrap right-0 mr-0"
+                  >
+                    <div class="truncate">
+                      <template v-for="(tag, tagIndex) in getPriceTags(node, appStore.lang)" :key="tagIndex">
+                        <span class="mx-1">·</span>
+                        <span :class="tag.highlight ? getRemainingTimeTagClass(node) : ''">
+                          {{ tag.text }}
+                        </span>
+                      </template>
+                    </div>
+                  </DataTooltip>
                 </div>
               </div>
 
@@ -295,11 +238,8 @@ function getCustomTags(node: NodeData): Array<string> {
                 </div>
               </div>
 
-              <!-- 运行时间 -->
-              <div v-else-if="col.key === 'uptime'" class="flex flex-col gap-0.5">
-                <span class="text-[10px] text-muted-foreground truncate">
-                  {{ formatUptime(node.uptime ?? 0) }}
-                </span>
+              <!-- 三网 -->
+              <div v-else-if="col.key === 'networks'" class="flex flex-col gap-0.5">
                 <NodePingListCell
                   :uuid="node.uuid"
                   :online="node.online"

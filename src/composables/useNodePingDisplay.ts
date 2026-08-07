@@ -1,7 +1,6 @@
 import type { MaybeRefOrGetter } from 'vue'
 import { computed, toValue } from 'vue'
 import { NODE_PING_BAR_COUNT, useNodePingStats } from '@/composables/useNodePingStats'
-import { useAppStore } from '@/stores/app'
 import { formatDateTime } from '@/utils/helper'
 
 export type NodePingMetric = 'latency' | 'loss'
@@ -23,14 +22,28 @@ interface UseNodePingDisplayOptions {
   emptyPanelTooltipText?: Partial<Record<NodePingMetric, string>>
 }
 
+export function getPingToneClass(value: number): string {
+  if (!value)
+    return 'text-muted-foreground'
+  if (value <= 60)
+    return 'text-emerald-600 dark:text-emerald-400'
+  if (value <= 120)
+    return 'text-green-600 dark:text-green-400'
+  if (value <= 180)
+    return 'text-lime-600 dark:text-lime-400'
+  if (value <= 240)
+    return 'text-amber-600 dark:text-amber-400'
+  return 'text-rose-600 dark:text-rose-400'
+}
+
 function getLatencyToneClass(latency: number): string {
   if (latency <= 60)
     return 'bg-emerald-600/90'
-  if (latency <= 100)
-    return 'bg-green-400/80'
-  if (latency <= 160)
+  if (latency <= 120)
+    return 'bg-green-500/80'
+  if (latency <= 180)
     return 'bg-lime-400/80'
-  if (latency <= 200)
+  if (latency <= 240)
     return 'bg-yellow-400/80'
   return 'bg-rose-500/80'
 }
@@ -39,11 +52,11 @@ function getLossToneClass(loss: number): string {
   if (loss <= 1)
     return 'bg-emerald-600/90'
   if (loss <= 3)
-    return 'bg-green-400/90'
+    return 'bg-green-500/80'
   if (loss <= 6)
-    return 'bg-lime-400/90'
+    return 'bg-lime-400/80'
   if (loss <= 9)
-    return 'bg-yellow-400/90'
+    return 'bg-yellow-400/80'
   return 'bg-rose-500/80'
 }
 
@@ -51,15 +64,11 @@ export function useNodePingDisplay(
   uuid: MaybeRefOrGetter<string>,
   options: UseNodePingDisplayOptions = {},
 ) {
-  const appStore = useAppStore()
-
-  const pingStatsEnabled = computed(() => {
-    if (options.enabled !== undefined && !toValue(options.enabled))
-      return false
-    if (appStore.publicSettings?.record_enabled === false)
-      return false
-    return appStore.publicSettings?.ping_record_preserve_time !== 0
-  })
+  // Komari 1.2.6+ uses metric-store retention and keeps the legacy public
+  // record fields for compatibility only. They can report records as disabled
+  // even when ping metrics are available, so only an explicit caller option
+  // should prevent the query.
+  const pingStatsEnabled = computed(() => options.enabled === undefined || toValue(options.enabled))
 
   const pingRecordsQueryHours = computed(() => RECENT_PING_RECORDS_QUERY_HOURS)
 
@@ -153,6 +162,14 @@ export function useNodePingDisplay(
     return `平均丢包 ${pingStats.avgLoss.value.toFixed(1)}%${volatility}`
   })
 
+  const topPingNetworks = computed(() => {
+    return pingStats.perTaskStats.value.slice(0, 3).map(p => ({
+      name: p.name,
+      latency: p.avgLatency >= 0 ? `${Math.round(p.avgLatency)}ms` : '--',
+      toneClass: p.avgLatency >= 0 ? getPingToneClass(p.avgLatency) : 'text-rose-500',
+    }))
+  })
+
   return {
     pingStats,
     pingStatsEnabled,
@@ -163,5 +180,7 @@ export function useNodePingDisplay(
     lossDisplay,
     latencyPanelTooltip,
     lossPanelTooltip,
+    perTaskStats: pingStats.perTaskStats,
+    topPingNetworks,
   }
 }

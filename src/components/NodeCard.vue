@@ -7,12 +7,13 @@ import { CardX } from '@/components/ui/card-x'
 import { DataTooltip } from '@/components/ui/data-tooltip'
 import { ProgressThin } from '@/components/ui/progress-thin'
 import { useBackgroundSurface } from '@/composables/useBackgroundSurface'
+import { useNodeFormatters } from '@/composables/useNodeFormatters'
 import { useNodePingDisplay } from '@/composables/useNodePingDisplay'
 import { useAppStore } from '@/stores/app'
-import { formatBytesPerSecondWithConfig, formatBytesWithConfig, formatDateTime, formatUptimeWithFormat, getStatus } from '@/utils/helper'
+import { formatDateTime, getStatus } from '@/utils/helper'
+import { getCustomTags, getDiskPercentage, getMemPercentage, getPriceTags, getRemainingTimeTagClass, getTrafficUsed, getTrafficUsedPercentage, hasRegion, showTrafficProgress } from '@/utils/nodeHelpers'
 import { getOSImage, getOSName } from '@/utils/osImageHelper'
-import { getRegionCode, getRegionDisplayName } from '@/utils/regionHelper'
-import { formatPriceWithCycle, getDaysUntilExpired, getExpireStatus, getExpireTextClass, parseTags } from '@/utils/tagHelper'
+import { getFlagSrc, getRegionDisplayName } from '@/utils/regionHelper'
 
 const props = defineProps<{ node: NodeData }>()
 
@@ -23,17 +24,15 @@ const emit = defineEmits<{
 
 const appStore = useAppStore()
 const { pickSurfaceClass } = useBackgroundSurface()
+const { formatBytes, formatBytesPerSecond, formatUptime } = useNodeFormatters()
 
-const formatBytes = (bytes: number) => formatBytesWithConfig(bytes, appStore.byteDecimals)
-const formatBytesPerSecond = (bytes: number) => formatBytesPerSecondWithConfig(bytes, appStore.byteDecimals)
-const formatUptime = (seconds: number) => formatUptimeWithFormat(seconds, 'hour')
 const offlineTime = computed(() => formatDateTime(props.node.time))
 const expiredDate = computed(() => formatDateTime(props.node.expired_at, 'YYYY-MM-DD'))
 
 const cpuStatus = computed(() => getStatus(props.node.cpu ?? 0))
-const memPercentage = computed(() => (props.node.ram ?? 0) / (props.node.mem_total || 1) * 100)
+const memPercentage = computed(() => getMemPercentage(props.node))
 const memStatus = computed(() => getStatus(memPercentage.value))
-const diskPercentage = computed(() => (props.node.disk ?? 0) / (props.node.disk_total || 1) * 100)
+const diskPercentage = computed(() => getDiskPercentage(props.node))
 const diskStatus = computed(() => getStatus(diskPercentage.value))
 
 const {
@@ -43,62 +42,14 @@ const {
   lossDisplay,
   latencyPanelTooltip,
   lossPanelTooltip,
+  topPingNetworks,
 } = useNodePingDisplay(() => props.node.uuid)
 
-function showTrafficProgress(node: NodeData): boolean {
-  return node.traffic_limit > 0
-}
-
-const trafficUsed = computed(() => {
-  const { net_total_up = 0, net_total_down = 0, traffic_limit_type } = props.node
-  switch (traffic_limit_type) {
-    case 'up': return net_total_up
-    case 'down': return net_total_down
-    case 'min': return Math.min(net_total_up, net_total_down)
-    case 'max': return Math.max(net_total_up, net_total_down)
-    case 'sum':
-    default: return net_total_up + net_total_down
-  }
-})
-
-interface PriceTagItem {
-  text: string
-  highlightValue?: string
-  prefix?: string
-  suffix?: string
-}
-
-const priceTags = computed<PriceTagItem[]>(() => {
-  const tags: PriceTagItem[] = []
-  const lang = appStore.lang
-  const node = props.node
-  const days = getDaysUntilExpired(node.expired_at)
-  const status = getExpireStatus(node.expired_at)
-  const priceText = formatPriceWithCycle(node.price, node.billing_cycle, node.currency, lang)
-  if (node.price !== 0)
-    tags.push({ text: priceText })
-  if (status === 'expired')
-    tags.push({ text: lang === 'zh-CN' ? '已过期' : 'Expired' })
-  else if (status === 'long_term')
-    tags.push({ text: lang === 'zh-CN' ? '长期' : 'Long-term' })
-  else if (lang === 'zh-CN')
-    tags.push({ text: `余 ${days} 天`, prefix: '余 ', highlightValue: String(days), suffix: ' 天' })
-  else
-    tags.push({ text: `${days} days left`, highlightValue: String(days), suffix: ' days left' })
-  return tags
-})
-
-const remainingTimeTagClass = computed(() => {
-  if (props.node.price === 0)
-    return ''
-  return getExpireTextClass(props.node.expired_at)
-})
-
-const customTags = computed(() => parseTags(props.node.tags).map(t => t.text))
-
-function hasRegion(region: string | null | undefined): boolean {
-  return Boolean(region?.trim())
-}
+const trafficUsedPercentage = computed(() => getTrafficUsedPercentage(props.node))
+const trafficUsed = computed(() => getTrafficUsed(props.node))
+const priceTags = computed(() => getPriceTags(props.node, appStore.lang))
+const remainingTimeTagClass = computed(() => getRemainingTimeTagClass(props.node))
+const customTags = computed(() => getCustomTags(props.node))
 
 function openPingDialog() {
   emit('pingClick', props.node)
@@ -130,7 +81,7 @@ function openPingDialog() {
       <div class="flex gap-2 items-center">
         <img :src="getOSImage(props.node.os)" :alt="getOSName(props.node.os)" class="size-4">
         <img
-          v-if="hasRegion(props.node.region)" :src="`/images/flags/${getRegionCode(props.node.region)}.svg`"
+          v-if="hasRegion(props.node.region)" :src="getFlagSrc(props.node.region)"
           :alt="getRegionDisplayName(props.node.region)" class="size-5 shrink-0"
         >
       </div>
@@ -197,19 +148,16 @@ function openPingDialog() {
                 流量
               </span>
             </div>
-            <DataTooltip
-              placement="top" class="block"
-              :content-class="[!showTrafficProgress(props.node) && '!hidden']"
-            >
-              <div class="flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">
-                <span class="flex min-w-0 items-center gap-0.5 truncate">
-                  <Icon icon="tabler:chevron-up" width="12" height="12" />
-                  {{ formatBytes(props.node.net_total_up ?? 0) }}
-                </span>
-                <span class="flex min-w-0 items-center gap-0.5 truncate">
-                  <Icon icon="tabler:chevron-down" width="12" height="12" />
-                  {{ formatBytes(props.node.net_total_down ?? 0) }}
-                </span>
+            <ProgressThin :percentage="trafficUsedPercentage" status="success" :height="4" />
+            <DataTooltip placement="top" class="block">
+              <div class="whitespace-pre-wrap text-[11px] text-muted-foreground truncate">
+                {{ formatBytes(trafficUsed) }} /
+                <template v-if="showTrafficProgress(props.node)">
+                  {{ formatBytes(props.node.traffic_limit) }}
+                </template>
+                <template v-else>
+                  ∞
+                </template>
               </div>
               <template #content>
                 <span class="whitespace-nowrap">
@@ -262,19 +210,32 @@ function openPingDialog() {
                 <span class="truncate flex flex-row gap-1">
                   <template v-for="(tag, index) in priceTags" :key="tag">
                     <span class="inline-flex flex-row gap-1 items-center">
-                      <template v-if="tag.highlightValue">
-                        <span>{{ tag.prefix }}</span>
-                        <span :class="remainingTimeTagClass">{{ tag.highlightValue }}</span>
-                        <span>{{ tag.suffix }}</span>
-                      </template>
-                      <template v-else>
-                        {{ tag.text }}
-                      </template>
+                      <span :class="tag.highlight ? remainingTimeTagClass : ''">{{ tag.text }}</span>
                     </span>
                     <span v-if="index < priceTags.length - 1" :key="`${tag}-${index}`">·</span>
                   </template>
                 </span>
               </DataTooltip>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="truncate">
+                三网
+              </span>
+              <div class="border-t-2 border-dotted border-gray-500/10 mx-2 flex-1" />
+              <div v-if="topPingNetworks.length > 0" class="flex flex-row">
+                <DataTooltip
+                  v-for="(net, index) in topPingNetworks" :key="net.name" placement="top"
+                  :content="`${net.name}\n${net.latency}`" content-class="whitespace-pre-wrap w-max px-1.5 !leading-[1.2] text-[11px]"
+                >
+                  <div class="truncate">
+                    <span v-if="index" class="mx-1">·</span>
+                    <span :class="net.toneClass">{{ net.latency }}</span>
+                  </div>
+                </DataTooltip>
+              </div>
+              <div v-else class="truncate">
+                N/A
+              </div>
             </div>
             <div class="grid grid-cols-6 gap-x-3">
               <!-- 延迟 -->
@@ -290,12 +251,12 @@ function openPingDialog() {
                   <span class="font-medium text-foreground/85">{{ latencyDisplay }}</span>
                 </div>
                 <div
-                  class="grid h-full items-end gap-[1px] opacity-80"
+                  class="grid h-full items-end gap-[1px]"
                   :style="{ gridTemplateColumns: `repeat(${latencyRenderBars.length}, minmax(0, 1fr))` }"
                 >
                   <DataTooltip
                     v-for="bar in latencyRenderBars" :key="bar.key" placement="top" :content="bar.tooltip"
-                    class="h-full w-full"
+                    class="h-full w-full" content-class="whitespace-pre-wrap w-max px-1.5 !leading-[1.2] text-[11px]"
                   >
                     <span
                       class="block h-full w-full rounded-[1px] transition-transform duration-150 group-hover/data-tooltip:scale-y-200"
@@ -317,12 +278,12 @@ function openPingDialog() {
                   <span class="font-medium text-foreground/85">{{ lossDisplay }}</span>
                 </div>
                 <div
-                  class="grid h-full items-end gap-[1px] opacity-80 group-hover/panel:opacity-100"
+                  class="grid h-full items-end gap-[1px]"
                   :style="{ gridTemplateColumns: `repeat(${lossRenderBars.length}, minmax(0, 1fr))` }"
                 >
                   <DataTooltip
                     v-for="bar in lossRenderBars" :key="bar.key" placement="top" :content="bar.tooltip"
-                    class="h-full w-full"
+                    class="h-full w-full" content-class="whitespace-pre-wrap w-max px-1.5 !leading-[1.2] text-[11px]"
                   >
                     <span
                       class="block h-full w-full rounded-[1px] transition-transform duration-150 group-hover/data-tooltip:scale-y-200"
@@ -350,6 +311,5 @@ function openPingDialog() {
 <style scoped>
 .node-card {
   position: relative;
-  overflow: hidden;
 }
 </style>
